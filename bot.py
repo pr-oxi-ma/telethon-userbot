@@ -1,9 +1,9 @@
 import os
+import base64
 import uuid
 import asyncio
 import shutil
 import tempfile
-import base64
 from pathlib import Path
 from telethon import TelegramClient, events, Button
 from yt_dlp import YoutubeDL
@@ -13,17 +13,20 @@ API_HASH = os.getenv("API_HASH")
 SESSION_NAME = 'telethon_userbot'
 COOKIES_FILE = 'cookies.txt'
 
-# Write session file from base64 if it doesn't exist
-SESSION_B64 = os.getenv("SESSION_B64")
-if SESSION_B64 and not os.path.exists(f"{SESSION_NAME}.session"):
-    with open(f"{SESSION_NAME}.session", "wb") as f:
-        f.write(base64.b64decode(SESSION_B64))
+# Reconstruct session from 4 parts
+session_b64 = ""
+for suffix in ["AA", "AB", "AC", "AD"]:
+    session_b64 += os.getenv(f"SESSION_PART_{suffix}", "")
 
-# Write cookies.txt from base64
-COOKIES_B64 = os.getenv("COOKIES_B64")
-if COOKIES_B64:
-    with open(COOKIES_FILE, 'wb') as f:
-        f.write(base64.b64decode(COOKIES_B64))
+if session_b64 and not os.path.exists(f"{SESSION_NAME}.session"):
+    with open(f"{SESSION_NAME}.session", "wb") as f:
+        f.write(base64.b64decode(session_b64))
+
+# Reconstruct cookies.txt from COOKIES_B64
+cookies_b64 = os.getenv("COOKIES_B64")
+if cookies_b64:
+    with open(COOKIES_FILE, "wb") as f:
+        f.write(base64.b64decode(cookies_b64))
 
 MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024
 client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
@@ -44,14 +47,9 @@ def format_duration(seconds):
     return f"{minutes}m {seconds}s"
 
 def extract_formats(url):
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'forcejson': True,
-    }
+    ydl_opts = {'quiet': True, 'skip_download': True, 'forcejson': True}
     if has_cookies():
         ydl_opts['cookiefile'] = COOKIES_FILE
-
     with YoutubeDL(ydl_opts) as ydl:
         data = ydl.extract_info(url, download=False)
 
